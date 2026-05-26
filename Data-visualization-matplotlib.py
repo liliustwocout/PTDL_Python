@@ -85,19 +85,29 @@ print("Plotting Trend chart (Experience Levels vs Top Job Titles)...")
 fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 6))
 
 # Subplot 1: Experience Level trends over years
-trend_exp = df.groupby(['work_year', 'experience_level'])['salary_in_usd'].mean().unstack()
+# Plot both mean and median to account for skewness in salary distribution
+trend_exp_mean = df.groupby(['work_year', 'experience_level'])['salary_in_usd'].mean().unstack()
+trend_exp_median = df.groupby(['work_year', 'experience_level'])['salary_in_usd'].median().unstack()
 for exp in exp_order:
-    if exp in trend_exp.columns:
-        ax1.plot(trend_exp.index, trend_exp[exp], marker='o', linewidth=2.5, 
-                 label=f"{exp} Average", color=COLORS_EXP[exp])
-overall_trend = df.groupby('work_year')['salary_in_usd'].mean()
-ax1.plot(overall_trend.index, overall_trend.values, linestyle='--', color='#4A4A4A', 
-        linewidth=2, label='Overall Average')
+    if exp in trend_exp_mean.columns:
+        ax1.plot(trend_exp_mean.index, trend_exp_mean[exp], marker='o', linewidth=2.5,
+                 label=f"{exp} Mean", color=COLORS_EXP[exp])
+    if exp in trend_exp_median.columns:
+        ax1.plot(trend_exp_median.index, trend_exp_median[exp], marker='o', linestyle='--', linewidth=1.5,
+                 label=f"{exp} Median", color=COLORS_EXP[exp], alpha=0.8)
+
+overall_trend_mean = df.groupby('work_year')['salary_in_usd'].mean()
+overall_trend_median = df.groupby('work_year')['salary_in_usd'].median()
+ax1.plot(overall_trend_mean.index, overall_trend_mean.values, linestyle='-', color='#4A4A4A',
+        linewidth=2, label='Overall Mean')
+ax1.plot(overall_trend_median.index, overall_trend_median.values, linestyle='--', color='#4A4A4A',
+        linewidth=1.5, label='Overall Median')
 
 ax1.set_xlabel('Năm làm việc', fontsize=11, fontweight='bold', labelpad=8)
 ax1.set_ylabel('Lương trung bình (USD)', fontsize=11, fontweight='bold', labelpad=8)
 ax1.set_title('A. Xu hướng lương theo Cấp bậc kinh nghiệm', fontsize=12, fontweight='bold', pad=12)
-ax1.set_xticks(trend_exp.index)
+# use the mean-based index (work_years) for xticks (both mean and median share same index)
+ax1.set_xticks(trend_exp_mean.index)
 ax1.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, loc: f"${int(x):,}"))
 ax1.grid(True, linestyle='--', alpha=0.4)
 ax1.spines['top'].set_visible(False)
@@ -138,10 +148,11 @@ print(f"-> Saved: {trend_path}")
 print("Plotting Part of a Whole chart (Experience vs Company Size)...")
 fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 6.5))
 
-# Subplot 1: Experience Level
-exp_counts = df['experience_level'].value_counts()
-exp_labels_pie = [f"{exp}\n({count:,} người)" for exp, count in zip(exp_counts.index, exp_counts.values)]
-colors_exp_pie = [COLORS_EXP[exp] for exp in exp_counts.index]
+# Subplot 1: Experience Level (use fixed order to keep colors/labels stable)
+# ensure counts follow `exp_order` so colors and labels remain consistent
+exp_counts = df['experience_level'].value_counts().reindex(exp_order).fillna(0).astype(int)
+exp_labels_pie = [f"{label}\n({count:,} người)" for label, count in zip(exp_labels, exp_counts.values)]
+colors_exp_pie = [COLORS_EXP[exp] for exp in exp_order]
 wedges1, texts1, autotexts1 = ax1.pie(exp_counts.values, labels=exp_labels_pie, autopct='%1.1f%%',
                                     startangle=90, colors=colors_exp_pie, 
                                     wedgeprops=dict(width=0.4, edgecolor='w', linewidth=2))
@@ -149,11 +160,12 @@ plt.setp(texts1, size=9, fontweight='bold')
 plt.setp(autotexts1, size=9, weight="bold", color="black")
 ax1.set_title('A. Tỷ lệ nhân sự theo Cấp bậc kinh nghiệm', fontsize=12, fontweight='bold', pad=10)
 
-# Subplot 2: Company Size
-size_counts = df['company_size'].value_counts()
+# Subplot 2: Company Size (use fixed order S->M->L)
+size_order = ['S', 'M', 'L']
+size_counts = df['company_size'].value_counts().reindex(size_order).fillna(0).astype(int)
 size_mapping = {'S': 'Small (S)', 'M': 'Medium (M)', 'L': 'Large (L)'}
-size_labels_pie = [f"{size_mapping[size]}\n({count:,} c.ty)" for size, count in zip(size_counts.index, size_counts.values)]
-colors_size_pie = [COLORS_SIZE[size] for size in size_counts.index]
+size_labels_pie = [f"{size_mapping[size]}\n({count:,} c.ty)" for size, count in zip(size_order, size_counts.values)]
+colors_size_pie = [COLORS_SIZE[size] for size in size_order]
 wedges2, texts2, autotexts2 = ax2.pie(size_counts.values, labels=size_labels_pie, autopct='%1.1f%%',
                                     startangle=90, colors=colors_size_pie, 
                                     wedgeprops=dict(width=0.4, edgecolor='w', linewidth=2))
@@ -243,10 +255,14 @@ print("Plotting Flow chart (Remote Shifts & Experience Shifts)...")
 fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 6))
 
 # Subplot 1: Remote Work shift over years
-df['work_type'] = df['remote_ratio'].map({0: 'On-site (0%)', 50: 'Hybrid (50%)', 100: 'Remote (100%)'})
+# Map known remote_ratio values safely; unknown ratios become 'Other' and are ignored in ordered stack
+remote_map = {0: 'On-site (0%)', 50: 'Hybrid (50%)', 100: 'Remote (100%)'}
+df['work_type'] = df['remote_ratio'].map(remote_map).fillna('Other')
 flow_remote = df.groupby(['work_year', 'work_type']).size().unstack(fill_value=0)
-flow_remote = flow_remote[['On-site (0%)', 'Hybrid (50%)', 'Remote (100%)']]
-flow_remote_perc = flow_remote.div(flow_remote.sum(axis=1), axis=0) * 100
+# ensure ordered columns exist (missing ones get filled with 0)
+cols = ['On-site (0%)', 'Hybrid (50%)', 'Remote (100%)']
+flow_remote = flow_remote.reindex(columns=cols, fill_value=0)
+flow_remote_perc = flow_remote.div(flow_remote.sum(axis=1).replace(0, 1), axis=0) * 100
 
 colors_flow_remote = ['#FC6E51', '#F6BB42', '#3BAFDA']
 ax1.stackplot(flow_remote_perc.index, 
