@@ -4,13 +4,13 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.stats import gaussian_kde
 
-# 1. Setup charts directory
+# 1. Thiết lập thư mục lưu trữ biểu đồ
 CHARTS_DIR = "charts"
 if not os.path.exists(CHARTS_DIR):
     os.makedirs(CHARTS_DIR)
     print(f"Created directory: '{CHARTS_DIR}' to save charts.")
 
-# 2. Load clean data
+# 2. Tải dữ liệu sạch
 DATA_FILE = "global_tech_salary_clean.csv"
 if not os.path.exists(DATA_FILE):
     raise FileNotFoundError(f"Cleaned data file not found: {DATA_FILE}. Please run preprocess_salary.py first.")
@@ -18,24 +18,22 @@ if not os.path.exists(DATA_FILE):
 print(f"Loading data from '{DATA_FILE}'...")
 df = pd.read_csv(DATA_FILE)
 
-# General plotting configuration
+# Cấu hình vẽ biểu đồ chung
 plt.rcParams['font.sans-serif'] = 'Arial'
 plt.rcParams['font.family'] = 'sans-serif'
 plt.rcParams['axes.unicode_minus'] = False
 
-# Colors for experience levels
+# Màu sắc cho các cấp bậc kinh nghiệm
 COLORS_EXP = {'EN': '#5D9CEC', 'MI': '#4FC1E9', 'SE': '#AC92EC', 'EX': '#EC87C0'}
-# Colors for company size
+# Màu sắc cho quy mô công ty
 COLORS_SIZE = {'S': '#FC6E51', 'M': '#A0D468', 'L': '#48CFAD'}
 
 
-# ==============================================================================
-# 1. RELATIONSHIP CHART (Hybrid Box Plot + Jittered Scatter Plot)
-# ==============================================================================
+# 1. BIỂU ĐỒ MỐI QUAN HỆ (Biểu đồ hộp kết hợp biểu đồ phân tán có độ nhiễu)
 print("Plotting Relationship chart (Hybrid Box + Jittered Scatter)...")
 fig, ax = plt.subplots(figsize=(9, 7))
 
-# Map experience level to numeric scale and add horizontal jitter
+# Ánh xạ cấp bậc kinh nghiệm sang thang đo số và thêm độ nhiễu (jitter) theo chiều ngang
 exp_order = ['EN', 'MI', 'SE', 'EX']
 exp_labels = ['Entry-level (EN)', 'Mid-level (MI)', 'Senior-level (SE)', 'Executive (EX)']
 df['exp_numeric'] = df['experience_level'].map({'EN': 0, 'MI': 1, 'SE': 2, 'EX': 3})
@@ -44,7 +42,7 @@ np.random.seed(42)
 jitter = np.random.normal(0, 0.12, size=len(df))
 df['exp_jitter'] = df['exp_numeric'] + jitter
 
-# Draw boxplots underneath
+# Vẽ biểu đồ hộp ở bên dưới
 box_data = [df[df['experience_level'] == exp]['salary_in_usd'] for exp in exp_order]
 bp = ax.box_plot = ax.boxplot(box_data, positions=[0, 1, 2, 3], patch_artist=True,
                              showfliers=False,
@@ -53,13 +51,13 @@ bp = ax.box_plot = ax.boxplot(box_data, positions=[0, 1, 2, 3], patch_artist=Tru
                              whiskerprops=dict(color='#AAB2BD', linewidth=1.5),
                              capprops=dict(color='#AAB2BD', linewidth=1.5))
 
-# Draw individual points on top
+# Vẽ các điểm dữ liệu đơn lẻ lên phía trên
 for i, exp in enumerate(exp_order):
     group = df[df['experience_level'] == exp]
     ax.scatter(group['exp_jitter'], group['salary_in_usd'], alpha=0.5, 
                label=exp_labels[i], color=COLORS_EXP[exp], edgecolors='none', s=25, zorder=3)
 
-# Configure axes
+# Cấu hình các trục tọa độ
 ax.set_xticks([0, 1, 2, 3])
 ax.set_xticklabels(exp_labels, fontsize=10, fontweight='bold')
 ax.set_xlabel('Cấp bậc kinh nghiệm (Experience Level)', fontsize=11, fontweight='bold', labelpad=12)
@@ -78,14 +76,12 @@ plt.close()
 print(f"-> Saved: {relationship_path}")
 
 
-# ==============================================================================
-# 2. TREND CHART (2 Subplots: Experience Levels & Top Job Titles)
-# ==============================================================================
+# 2. BIỂU ĐỒ XU HƯỚNG (2 biểu đồ: Cấp bậc kinh nghiệm & Top chức danh công việc)
 print("Plotting Trend chart (Experience Levels vs Top Job Titles)...")
 fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 6))
 
-# Subplot 1: Experience Level trends over years
-# Plot both mean and median to account for skewness in salary distribution
+# Biểu đồ 1: Xu hướng cấp bậc kinh nghiệm qua các năm
+# Vẽ cả giá trị trung bình (mean) và trung vị (median) để tính đến độ lệch trong phân phối lương
 trend_exp_mean = df.groupby(['work_year', 'experience_level'])['salary_in_usd'].mean().unstack()
 trend_exp_median = df.groupby(['work_year', 'experience_level'])['salary_in_usd'].median().unstack()
 for exp in exp_order:
@@ -106,7 +102,7 @@ ax1.plot(overall_trend_median.index, overall_trend_median.values, linestyle='--'
 ax1.set_xlabel('Năm làm việc', fontsize=11, fontweight='bold', labelpad=8)
 ax1.set_ylabel('Lương trung bình (USD)', fontsize=11, fontweight='bold', labelpad=8)
 ax1.set_title('A. Xu hướng lương theo Cấp bậc kinh nghiệm', fontsize=12, fontweight='bold', pad=12)
-# use the mean-based index (work_years) for xticks (both mean and median share same index)
+# Sử dụng chỉ mục dựa trên giá trị trung bình (work_years) cho xticks (cả trung bình và trung vị đều dùng chung một chỉ mục)
 ax1.set_xticks(trend_exp_mean.index)
 ax1.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, loc: f"${int(x):,}"))
 ax1.grid(True, linestyle='--', alpha=0.4)
@@ -114,7 +110,7 @@ ax1.spines['top'].set_visible(False)
 ax1.spines['right'].set_visible(False)
 ax1.legend(title='Phân loại', loc='upper left')
 
-# Subplot 2: Top 4 Job Titles trends over years
+# Biểu đồ 2: Xu hướng top 4 vị trí công việc qua các năm
 top_jobs = df['job_title'].value_counts().head(4).index.tolist()
 trend_jobs = df[df['job_title'].isin(top_jobs)].groupby(['work_year', 'job_title'])['salary_in_usd'].mean().unstack()
 
@@ -142,14 +138,12 @@ plt.close()
 print(f"-> Saved: {trend_path}")
 
 
-# ==============================================================================
-# 3. PART OF A WHOLE CHART (2 Subplots: Experience Levels & Company Sizes)
-# ==============================================================================
+# 3. BIỂU ĐỒ TỶ LỆ CƠ CẤU (2 biểu đồ : Cấp bậc kinh nghiệm & Quy mô công ty)
 print("Plotting Part of a Whole chart (Experience vs Company Size)...")
 fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 6.5))
 
-# Subplot 1: Experience Level (use fixed order to keep colors/labels stable)
-# ensure counts follow `exp_order` so colors and labels remain consistent
+# Biểu đồ 1: Cấp bậc kinh nghiệm (sử dụng thứ tự cố định để giữ màu sắc/nhãn ổn định)
+# Đảm bảo số lượng tuân theo `exp_order` để màu sắc và nhãn luôn nhất quán
 exp_counts = df['experience_level'].value_counts().reindex(exp_order).fillna(0).astype(int)
 exp_labels_pie = [f"{label}\n({count:,} người)" for label, count in zip(exp_labels, exp_counts.values)]
 colors_exp_pie = [COLORS_EXP[exp] for exp in exp_order]
@@ -160,7 +154,7 @@ plt.setp(texts1, size=9, fontweight='bold')
 plt.setp(autotexts1, size=9, weight="bold", color="black")
 ax1.set_title('A. Tỷ lệ nhân sự theo Cấp bậc kinh nghiệm', fontsize=12, fontweight='bold', pad=10)
 
-# Subplot 2: Company Size (use fixed order S->M->L)
+# Biểu đồ 2: Quy mô công ty (sử dụng thứ tự cố định S->M->L)
 size_order = ['S', 'M', 'L']
 size_counts = df['company_size'].value_counts().reindex(size_order).fillna(0).astype(int)
 size_mapping = {'S': 'Small (S)', 'M': 'Medium (M)', 'L': 'Large (L)'}
@@ -181,24 +175,22 @@ plt.close()
 print(f"-> Saved: {part_of_whole_path}")
 
 
-# ==============================================================================
-# 4. DISTRIBUTION CHART (2 Subplots: Hist+KDE of Salaries & Boxplot by Company Size)
-# ==============================================================================
+# 4. BIỂU ĐỒ PHÂN PHỐI (2 biểu đồ: Biểu đồ cột+KDE của Lương & Biểu đồ hộp theo Quy mô công ty)
 print("Plotting Distribution chart (Hist+KDE & Boxplot by Company Size)...")
 fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 6))
 
-# Subplot 1: Histogram + Math KDE
+# Biểu đồ 1: Biểu đồ cột (Histogram) + Mật độ KDE toán học
 salaries = df['salary_in_usd'].values
-# Plot histogram normalized (density=True) so KDE fits on top
+# Vẽ biểu đồ cột đã chuẩn hóa (density=True) để đường KDE khớp lên trên
 n, bins, patches = ax1.hist(salaries, bins=35, color='#4A89DC', alpha=0.6, 
                             edgecolor='#357EC7', linewidth=0.5, density=True, label='Mật độ tần suất')
 
-# Calculate mathematical KDE using scipy
+# Tính toán mật độ KDE toán học bằng scipy
 kde = gaussian_kde(salaries)
 x_range = np.linspace(salaries.min(), salaries.max(), 300)
 ax1.plot(x_range, kde(x_range), color='#E9573F', linewidth=2.5, label='Đường mật độ KDE')
 
-# Stats lines
+# Các đường thông tin thống kê
 mean_val = salaries.mean()
 median_val = np.median(salaries)
 ax1.axvline(mean_val, color='#DA4453', linestyle='dashed', linewidth=2, label=f'Mean (T.bình): ${int(mean_val):,}')
@@ -213,7 +205,7 @@ ax1.spines['top'].set_visible(False)
 ax1.spines['right'].set_visible(False)
 ax1.legend(loc='upper right')
 
-# Subplot 2: Boxplot of salary by Company Size
+# Biểu đồ 2: Biểu đồ hộp của lương theo Quy mô công ty
 size_order = ['S', 'M', 'L']
 size_labels = ['Small (S)', 'Medium (M)', 'Large (L)']
 box_size_data = [df[df['company_size'] == sz]['salary_in_usd'] for sz in size_order]
@@ -224,7 +216,7 @@ bp_sz = ax2.boxplot(box_size_data, patch_artist=True, showfliers=True,
                     capprops=dict(color='#AAB2BD', linewidth=1.2),
                     flierprops=dict(marker='o', markerfacecolor='#DA4453', markersize=3, markeredgecolor='none', alpha=0.5))
 
-# Color boxplot patches
+# Tô màu cho các hộp của biểu đồ hộp
 for patch, color in zip(bp_sz['boxes'], [COLORS_SIZE[sz] for sz in size_order]):
     patch.set_facecolor(color)
     patch.set_edgecolor('#AAB2BD')
@@ -248,18 +240,15 @@ plt.close()
 print(f"-> Saved: {distribution_path}")
 
 
-# ==============================================================================
-# 5. FLOW CHART (2 Subplots: Remote Work Models & Experience Level Shifts)
-# ==============================================================================
+# 5. BIỂU ĐỒ DÒNG CHẢY DỊCH CHUYỂN (2 biểu đồ: Mô hình làm việc từ xa & Chuyển dịch cấp bậc kinh nghiệm)
 print("Plotting Flow chart (Remote Shifts & Experience Shifts)...")
 fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 6))
 
-# Subplot 1: Remote Work shift over years
-# Map known remote_ratio values safely; unknown ratios become 'Other' and are ignored in ordered stack
+# Biểu đồ 1: Sự chuyển dịch hình thức làm việc từ xa qua các năm
+# Ánh xạ các giá trị remote_ratio đã biết một cách an toàn; các tỷ lệ chưa biết sẽ trở thành 'Other' và bị bỏ qua trong stack có thứ tự
 remote_map = {0: 'On-site (0%)', 50: 'Hybrid (50%)', 100: 'Remote (100%)'}
 df['work_type'] = df['remote_ratio'].map(remote_map).fillna('Other')
 flow_remote = df.groupby(['work_year', 'work_type']).size().unstack(fill_value=0)
-# ensure ordered columns exist (missing ones get filled with 0)
 cols = ['On-site (0%)', 'Hybrid (50%)', 'Remote (100%)']
 flow_remote = flow_remote.reindex(columns=cols, fill_value=0)
 flow_remote_perc = flow_remote.div(flow_remote.sum(axis=1).replace(0, 1), axis=0) * 100
@@ -281,7 +270,7 @@ ax1.spines['top'].set_visible(False)
 ax1.spines['right'].set_visible(False)
 ax1.legend(loc='lower left', title='Hình thức làm việc')
 
-# Subplot 2: Experience Levels shift over years
+# Biểu đồ 2: Sự chuyển dịch cấp bậc kinh nghiệm qua các năm
 flow_exp = df.groupby(['work_year', 'experience_level']).size().unstack(fill_value=0)
 flow_exp = flow_exp[exp_order]
 flow_exp_perc = flow_exp.div(flow_exp.sum(axis=1), axis=0) * 100

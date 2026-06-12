@@ -10,22 +10,22 @@ def load_data(path: str) -> pd.DataFrame:
 
 
 def clean_data(df: pd.DataFrame) -> pd.DataFrame:
-    # Trim whitespace for text columns
+    # Cắt khoảng trắng dư thừa cho các cột dạng văn bản
     text_columns = [col for col in df.columns if df[col].dtype == object]
     for col in text_columns:
         df[col] = df[col].astype(str).str.strip()
 
-    # Convert numeric columns
+    # Chuyển đổi các cột dạng số
     numeric_columns = ["work_year", "salary", "salary_in_usd", "remote_ratio"]
     for col in numeric_columns:
         if col in df.columns:
             df[col] = pd.to_numeric(df[col], errors="coerce")
 
-    # Drop duplicate rows and rows with missing required numeric values
+    # Loại bỏ các dòng trùng lặp và các dòng thiếu giá trị số bắt buộc
     df = df.drop_duplicates()
     df = df.dropna(subset=["work_year", "salary", "salary_in_usd", "remote_ratio"])
 
-    # Convert to integer if possible
+    # Chuyển đổi sang kiểu số nguyên nếu có thể
     df["work_year"] = df["work_year"].astype(int)
     df["salary"] = df["salary"].astype(int)
     df["salary_in_usd"] = df["salary_in_usd"].astype(int)
