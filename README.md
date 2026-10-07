@@ -97,25 +97,78 @@ Các biểu đồ trực quan hóa dữ liệu được viết trong file `Data-
 
 ---
 
+## Học máy & Dự đoán mức lương (Machine Learning)
+
+Toàn bộ quy trình xây dựng, huấn luyện và đánh giá các mô hình học máy được triển khai chi tiết trong notebook `main.ipynb`.
+
+### 1. Mục tiêu bài toán
+* **Bài toán:** Hồi quy (Regression) dự đoán mức lương trong ngành công nghệ theo USD (`salary_in_usd`).
+* **Đặc trưng đầu vào (Features):** Cấp bậc kinh nghiệm (`experience_level`), loại hợp đồng (`employment_type`), chức danh công việc (`job_title`), quốc gia cư trú (`employee_residence`), tỷ lệ làm từ xa (`remote_ratio`), địa điểm công ty (`company_location`), quy mô công ty (`company_size`), và năm làm việc (`work_year`).
+* **Biến mục tiêu (Target):** Được biến đổi logarit $y = \log(1 + \text{salary\_in\_usd})$ để chuẩn hóa phân phối lệch phải của mức lương, giúp mô hình hội tụ tốt hơn.
+
+### 2. Kỹ thuật tiền xử lý & Đặc trưng (Feature Engineering)
+* **Xử lý dữ liệu trùng & giá trị thiếu:** Loại bỏ hoàn toàn các bản ghi trùng lặp và bản ghi thiếu giá trị quan trọng để tránh hiện tượng mô hình học vẹt (overfitting).
+* **Lọc giá trị ngoại lệ (Outlier Filtering):** Lọc theo phân vị từ 1% đến 99% của `salary_in_usd` nhằm loại bỏ các điểm dữ liệu dị biệt làm lệch hàm mất mát.
+* **Mã hóa One-Hot (One-Hot Encoding):** Sử dụng `OneHotEncoder(handle_unknown='ignore')` để chuyển đổi các thuộc tính định loại sang ma trận nhị phân.
+* **Chuẩn hóa dữ liệu (Feature Scaling):** Áp dụng `StandardScaler` lên toàn bộ ma trận đặc trưng $X$ để đưa các biến về cùng thang đo (mean = 0, variance = 1).
+* **Phân chia dữ liệu (Train/Test Split):** Tách tập theo tỷ lệ **80% Huấn luyện (Train) - 20% Kiểm thử (Test)**. Để đảm bảo tính khách quan và kiểm tra độ bền vững, mỗi mô hình được huấn luyện lặp lại **10 lần** với các random seed khác nhau.
+
+### 3. Các mô hình học máy thực nghiệm
+
+Dự án triển khai và thử nghiệm 5 thuật toán học máy khác nhau:
+
+1. **Linear Regression (Hồi quy tuyến tính):**
+   * Mô hình cơ sở (Baseline). Đánh giá biến thiên $R^2$ qua 10 lần chạy (dao động khoảng $0.41 - 0.48$).
+   * Tích hợp tìm kiếm lưới `GridSearchCV` (`fit_intercept`, `positive`) để tối ưu hóa siêu tham số.
+2. **Decision Tree Regressor (Cây quyết định):**
+   * Khảo sát khả năng phân nhánh phi tuyến tính.
+   * $R^2$ dao động trong khoảng $0.28 - 0.39$ (trung bình ~0.33), dễ bị ảnh hưởng bởi tính phân mảnh dữ liệu.
+3. **Random Forest Regressor (Rừng ngẫu nhiên):**
+   * Mô hình Ensemble kết hợp 100 cây quyết định (`n_estimators=100`).
+   * Giảm phương sai rõ rệt so với Decision Tree đơn lẻ, tính ổn định qua 10 lần chạy rất cao.
+4. **XGBoost Regressor (Extreme Gradient Boosting):**
+   * Thuật toán Boosting tối ưu hóa theo gradient loss, thiết lập `n_estimators=100`, `learning_rate=0.1`.
+   * Cho kết quả $R^2$ cao nhất trong các mô hình (~$0.480$), bắt trọn tốt các quan hệ phức tạp giữa kinh nghiệm, vị trí và mức lương.
+5. **K-Nearest Neighbors Regressor (KNN):**
+   * Dự đoán mức lương dựa trên $k$ láng giềng gần nhất ($k=5$).
+   * Hiệu năng thấp hơn các mô hình dựa trên cây do không gian đặc trưng sau khi One-Hot Encoding có số chiều lớn (curse of dimensionality).
+
+### 4. Đánh giá & So sánh mô hình
+
+Notebook trực quan hóa và so sánh toàn diện 5 mô hình trên 5 thước đo hiệu năng:
+* **MSE (Mean Squared Error) & RMSE (Root Mean Squared Error):** Đo lường độ lệch bình phương giữa giá trị dự đoán và thực tế.
+* **$R^2$ (Hệ số xác định):** Đo lường tỷ lệ phương sai của mức lương mà mô hình giải thích được.
+* **MAE (Mean Absolute Error):** Sai số tuyệt đối trung bình, trực quan và dễ diễn giải.
+* **Thời gian huấn luyện (Training Time):** So sánh tốc độ xử lý giữa các mô hình (Linear Regression nhanh nhất, Random Forest và XGBoost tiêu tốn tài nguyên hơn nhưng cho độ chính xác cao hơn).
+
+---
+
 ## Yêu cầu thư viện
 
 - Python 3.x
 - pandas
 - numpy
 - matplotlib
+- scipy
+- scikit-learn
+- xgboost
 
-Cài đặt bằng pip:
+Cài đặt tất cả thư viện bằng pip:
 
 ```bash
-pip install pandas numpy matplotlib
+pip install pandas numpy matplotlib scipy scikit-learn xgboost
 ```
 
-## Script thực thi
+## Script & Notebook thực thi
 
 1. **Tiền xử lý dữ liệu:**
    - Script: `preprocess_salary.py`
    - Chạy lệnh: `python preprocess_salary.py`
 
-2. **Trực quan hóa dữ liệu:**
+2. **Trực quan hóa dữ liệu (5 nhóm biểu đồ nâng cao):**
    - Script: `Data-visualization-matplotlib.py`
    - Chạy lệnh: `python Data-visualization-matplotlib.py`
+
+3. **Huấn luyện mô hình Học máy & Phân tích chi tiết:**
+   - Notebook: `main.ipynb`
+   - Mở và chạy từng bước trên **Jupyter Notebook**, **JupyterLab** hoặc trực tiếp trên **VS Code / Google Colab**.
